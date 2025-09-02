@@ -54,7 +54,15 @@
             {
                 case UserDataSaveReason.UpdateUserRating:
                     var item = e.Item as Audio;
-                    await _apiClient.Feedback(item, e.User).ConfigureAwait(false);
+
+                    try
+                    {
+                        await _apiClient.Feedback(item, e.User).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        Plugin.Logger.ErrorException("Error sending user data to ListenBrainz", ex);
+                    }
                     break;
                 default:
                     return;
