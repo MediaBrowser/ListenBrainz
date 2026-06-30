@@ -16,6 +16,7 @@
             currentUserConfig.Username = form.querySelector('.username').value;
             currentUserConfig.SessionKey = form.querySelector('.password').value;
             currentUserConfig.Scrobble = form.querySelector('.optionScrobble').checked;
+            currentUserConfig.Url = form.querySelector('.txtUrl').value;
 
             ApiClient.updateTypedUserSettings(currentUserId, 'listenbrainz', currentUserConfig).then(
                 function (result) {
@@ -47,6 +48,7 @@
 
             form.querySelector('.username').value = currentUserConfig.Username || '';
             form.querySelector('.password').value = currentUserConfig.SessionKey || '';
+            form.querySelector('.txtUrl').value = currentUserConfig.Url || '';
             form.querySelector('.optionScrobble').checked = currentUserConfig.Scrobble;
 
             loading.hide();

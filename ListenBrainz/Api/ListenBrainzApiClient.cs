@@ -24,7 +24,17 @@
             _json = jsonSerializer;
         }
 
-        public async Task<ListenBrainzLookup> LookupMetadata(Audio item)
+        private string GetBaseApiUrl(ListenBrainzUser user)
+        {
+            if (!string.IsNullOrEmpty(user.Url))
+            {
+                return user.Url.TrimEnd('/');
+            }
+
+            return "https://api.listenbrainz.org";
+        }
+
+        public async Task<ListenBrainzLookup> LookupMetadata(Audio item, ListenBrainzUser listenBrainzUser)
         {
             var artist_name = HttpUtility.UrlEncode(item.Artists.FirstOrDefault());
             var recording_name = HttpUtility.UrlEncode(item.Name);
@@ -32,7 +42,7 @@
 
             var options = new HttpRequestOptions
             {
-                Url = $"https://api.listenbrainz.org/1/metadata/lookup?artist_name={artist_name}&recording_name={recording_name}&release_name={release_name}",
+                Url = GetBaseApiUrl(listenBrainzUser) + $"/1/metadata/lookup?artist_name={artist_name}&recording_name={recording_name}&release_name={release_name}",
                 CancellationToken = CancellationToken.None,
             };
 
@@ -45,7 +55,9 @@
 
         public async Task Feedback(Audio item, User user)
         {
-            var lookup = await LookupMetadata(item).ConfigureAwait(false);
+            var listenBrainzUser = ServerEntryPoint.Instance.GetUser(user);
+
+            var lookup = await LookupMetadata(item, listenBrainzUser).ConfigureAwait(false);
             var recording_mbid = lookup.recording_mbid;
 
             if (string.IsNullOrEmpty(recording_mbid))
@@ -62,13 +74,13 @@
 
             var options = new HttpRequestOptions
             {
-                Url = "https://api.listenbrainz.org/1/feedback/recording-feedback",
+                Url = GetBaseApiUrl(listenBrainzUser) + "/1/feedback/recording-feedback",
                 CancellationToken = CancellationToken.None,
                 RequestContentType = "application/json",
                 RequestContent = payload,
             };
 
-            var sessionKey = ServerEntryPoint.Instance.GetUser(user).SessionKey;
+            var sessionKey = listenBrainzUser.SessionKey;
             if (string.IsNullOrEmpty(sessionKey))
                 return;
 
@@ -122,7 +134,7 @@
         {
             var options = new HttpRequestOptions
             {
-                Url = "https://api.listenbrainz.org/1/submit-listens",
+                Url = GetBaseApiUrl(user) + "/1/submit-listens",
                 CancellationToken = CancellationToken.None,
                 RequestContentType = "application/json",
                 RequestContent = payload,
