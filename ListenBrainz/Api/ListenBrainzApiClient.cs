@@ -1,6 +1,7 @@
 ﻿namespace ListenBrainz.Api
 {
     using MediaBrowser.Common.Net;
+    using MediaBrowser.Controller;
     using MediaBrowser.Controller.Entities;
     using MediaBrowser.Controller.Entities.Audio;
     using MediaBrowser.Model.Serialization;
@@ -17,11 +18,13 @@
     {
         private readonly IHttpClient _httpClient;
         private readonly IJsonSerializer _json;
+        private readonly IServerApplicationHost _appHost;
 
-        public ListenBrainzApiClient(IHttpClient httpClient, IJsonSerializer jsonSerializer)
+        public ListenBrainzApiClient(IHttpClient httpClient, IJsonSerializer jsonSerializer, IServerApplicationHost serverApplicationHost)
         {
             _httpClient = httpClient;
             _json = jsonSerializer;
+            _appHost = serverApplicationHost;
         }
 
         private string GetBaseApiUrl(ListenBrainzUser user)
@@ -34,7 +37,7 @@
             return "https://api.listenbrainz.org";
         }
 
-        public async Task<ListenBrainzLookup> LookupMetadata(Audio item, ListenBrainzUser listenBrainzUser)
+        public async Task<ListenBrainzLookup> LookupMetadata(Audio item, ListenBrainzUser listenBrainzUser, CancellationToken cancellationToken)
         {
             var artist_name = HttpUtility.UrlEncode(item.Artists.FirstOrDefault());
             var recording_name = HttpUtility.UrlEncode(item.Name);
@@ -43,7 +46,8 @@
             var options = new HttpRequestOptions
             {
                 Url = GetBaseApiUrl(listenBrainzUser) + $"/1/metadata/lookup?artist_name={artist_name}&recording_name={recording_name}&release_name={release_name}",
-                CancellationToken = CancellationToken.None,
+                CancellationToken = cancellationToken,
+                UserAgent = "Emby/" + _appHost.ApplicationVersion.ToString()
             };
 
             using (var response = await _httpClient.GetResponse(options).ConfigureAwait(false))
@@ -53,11 +57,11 @@
             }
         }
 
-        public async Task Feedback(Audio item, User user)
+        public async Task Feedback(Audio item, User user, CancellationToken cancellationToken)
         {
             var listenBrainzUser = ServerEntryPoint.Instance.GetUser(user);
 
-            var lookup = await LookupMetadata(item, listenBrainzUser).ConfigureAwait(false);
+            var lookup = await LookupMetadata(item, listenBrainzUser, cancellationToken).ConfigureAwait(false);
             var recording_mbid = lookup.recording_mbid;
 
             if (string.IsNullOrEmpty(recording_mbid))
@@ -75,9 +79,10 @@
             var options = new HttpRequestOptions
             {
                 Url = GetBaseApiUrl(listenBrainzUser) + "/1/feedback/recording-feedback",
-                CancellationToken = CancellationToken.None,
+                CancellationToken = cancellationToken,
                 RequestContentType = "application/json",
                 RequestContent = payload,
+                UserAgent = "Emby/" + _appHost.ApplicationVersion.ToString()
             };
 
             var sessionKey = listenBrainzUser.SessionKey;
@@ -98,10 +103,10 @@
             }
         }
 
-        public async Task Scrobble(Audio item, ListenBrainzUser user)
+        public async Task Scrobble(Audio item, ListenBrainzUser user, CancellationToken cancellationToken)
         {
             var payload = BuildPayload("single", item);
-            var options = BuildRequest(user, payload);
+            var options = BuildRequest(user, payload, cancellationToken);
             using (var response = await _httpClient.Post(options).ConfigureAwait(false))
             {
                 if (response.StatusCode == HttpStatusCode.OK)
@@ -114,10 +119,10 @@
             }
         }
 
-        public async Task NowPlaying(Audio item, ListenBrainzUser user)
+        public async Task NowPlaying(Audio item, ListenBrainzUser user, CancellationToken cancellationToken)
         {
             var payload = BuildPayload("playing_now", item);
-            var options = BuildRequest(user, payload);
+            var options = BuildRequest(user, payload, cancellationToken);
             using (var response = await _httpClient.Post(options).ConfigureAwait(false))
             {
                 if (response.StatusCode == HttpStatusCode.OK)
@@ -130,14 +135,15 @@
             }
         }
 
-        private HttpRequestOptions BuildRequest(ListenBrainzUser user, char[] payload)
+        private HttpRequestOptions BuildRequest(ListenBrainzUser user, char[] payload, CancellationToken cancellationToken)
         {
             var options = new HttpRequestOptions
             {
                 Url = GetBaseApiUrl(user) + "/1/submit-listens",
-                CancellationToken = CancellationToken.None,
+                CancellationToken = cancellationToken,
                 RequestContentType = "application/json",
                 RequestContent = payload,
+                UserAgent = "Emby/" + _appHost.ApplicationVersion.ToString()
             };
 
             options.RequestHeaders.Add("Authorization", $"Token {user.SessionKey}");

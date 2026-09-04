@@ -14,6 +14,8 @@
     using System;
     using MediaBrowser.Common.Configuration;
     using MediaBrowser.Model.Entities;
+    using MediaBrowser.Controller;
+    using System.Threading;
 
     /// <summary>
     /// Class ServerEntryPoint
@@ -31,14 +33,14 @@
         /// <value>The instance.</value>
         public static ServerEntryPoint Instance { get; private set; }
 
-        public ServerEntryPoint(ISessionManager sessionManager, IJsonSerializer jsonSerializer, IHttpClient httpClient, ILogManager logManager, IUserDataManager userDataManager)
+        public ServerEntryPoint(ISessionManager sessionManager, IJsonSerializer jsonSerializer, IHttpClient httpClient, ILogManager logManager, IUserDataManager userDataManager, IServerApplicationHost applicationHost)
         {
             Plugin.Logger = logManager.GetLogger(Plugin.Instance.Name);
 
             _sessionManager = sessionManager;
             _userDataManager = userDataManager;
 
-            _apiClient = new ListenBrainzApiClient(httpClient, jsonSerializer);
+            _apiClient = new ListenBrainzApiClient(httpClient, jsonSerializer, applicationHost);
 
             _userDataManager.UserDataSaved += _userDataManager_UserDataSaved;
 
@@ -57,7 +59,7 @@
 
                     try
                     {
-                        await _apiClient.Feedback(item, e.User).ConfigureAwait(false);
+                        await _apiClient.Feedback(item, e.User, CancellationToken.None).ConfigureAwait(false);
                     }
                     catch (Exception ex)
                     {
@@ -148,7 +150,7 @@
 
                 try
                 {
-                    await _apiClient.Scrobble(item, listenBrainzUser).ConfigureAwait(false);
+                    await _apiClient.Scrobble(item, listenBrainzUser, CancellationToken.None).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
@@ -204,7 +206,7 @@
 
                 try
                 {
-                    await _apiClient.NowPlaying(item, listenBrainzUser).ConfigureAwait(false);
+                    await _apiClient.NowPlaying(item, listenBrainzUser, CancellationToken.None).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
